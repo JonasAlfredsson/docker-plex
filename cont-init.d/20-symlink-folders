@@ -1,0 +1,57 @@
+#!/usr/bin/with-contenv bash
+set -e
+# This script tries to symlink the stuff present in the "/extras" folder to the
+# "live" config folder.
+# Doing it this way has the benefit of keeping all of these files up to date
+# with the Plex Docker image instead of requiring the admin to perform manual
+# updating of these libraries.
+
+# If we are debugging, enable trace.
+if [ "${DEBUG,,}" = "true" ]; then
+  set -x
+fi
+
+# Find out where the Plex application intends to run.
+home="$(echo ~plex)"
+pmsApplicationSupportDir="${PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR:-${home}/Library/Application Support}"
+pmsBaseDir="${pmsApplicationSupportDir}/Plex Media Server"
+
+# Iterate over a list of folders which we know contain stuff that should be
+# symlinked to.
+for folder in "Plug-ins" "Scanners/Series"; do
+    # Make sure the folder in question exists in the "live" path.
+    if [ ! -d "${pmsBaseDir}/${folder}" ]; then
+        install -o plex -g plex -d "${pmsBaseDir}/${folder}"
+    fi
+
+    # Check this particular folder for already existing symlinks that point to
+    # non-existing files.
+    while IFS= read -r -d $'\0' symlink; do
+        echo "Removing broken symlink '${symlink}' to '$(realpath -- "${symlink}")'"
+        rm "${symlink}"
+    done < <(find "${pmsBaseDir}/${folder}/" -xtype l -lname '/extras/*' -print0)
+
+    # We then symlink everything from the "/extras/${folder}" over to the one
+    # here.
+    # By setting both min and max depth to 1 we get only the "top level" items
+    # that we should symlink to, no need to symlink stuff already inside a
+    # symlinked folder.
+    while IFS= read -r -d $'\0' source_file; do
+        # The name of the link should be the same name as the name of the "source"
+        # in the /extras folder. Just remove the known "/extras prefix" path to
+        # create the proper link name.
+        link="${pmsBaseDir}/${folder}/${source_file#"/extras/${folder}/"}"
+        if [ -L "${link}" ]; then
+            # If the symlink already exists we just double check that it points
+            # to the location we want.
+            if [ ! "$(readlink -- "${link}")" = "${source_file}" ]; then
+                echo "'${link}' points to '$(readlink -- "${link}")' instead of '${source_file}'"
+                exit 1
+            fi
+        else
+            # Try to create the symlink, but fail if there is already a file in
+            # the desired location. That way we will catch conflicting names.
+            ln -sv "${source_file}" "${link}"
+        fi
+    done < <(find "/extras/${folder}" -maxdepth 1 -mindepth 1 -print0)
+done
