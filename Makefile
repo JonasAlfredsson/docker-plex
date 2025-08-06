@@ -7,6 +7,11 @@ run:
 	docker run -it --rm \
 	--network=host \
 	--name=plex \
+	-e PLEX_UID='$(shell id -u)' \
+	-e PLEX_GID='$(shell id -g)' \
+	-v $(PWD)/tmp/config:/config \
+	-v $(PWD)/tmp/transcode:/transcode \
+	-v $(PWD)/tmp/data:/data:ro \
 	jonasal/plex:local
 
 dev:
