@@ -16,3 +16,6 @@ run:
 
 dev:
 	docker buildx build --platform linux/amd64,linux/386,linux/arm64,linux/arm/v7 --tag jonasal/plex:dev .
+
+push-dev:
+	docker buildx build --platform linux/amd64,linux/386,linux/arm64,linux/arm/v7 --tag jonasal/plex:dev --pull --push .
