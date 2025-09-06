@@ -1,4 +1,4 @@
-FROM plexinc/pms-docker:1.20.1.3252-a78fef9a9
+FROM plexinc/pms-docker:1.29.2.6364-6d72b0cf6
 
 # We are going to need to configure the s6 supervisor to behave in a sane manner
 # and actually exit if startup script and/or services fail. Change some timeouts
