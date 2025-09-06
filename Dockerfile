@@ -8,6 +8,7 @@ ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2 \
     S6_KILL_GRACETIME=10 \
     S6_KILL_FINISH_MAXTIME=10
 
+ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
 # Install USB libraries if any such thing is to be mounted.
         libusb-dev \
