@@ -1,0 +1,51 @@
+name: "build-latest"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "main"
+      - "master"
+    paths:
+      - "Dockerfile"
+      - "/cont-init.d/**"
+  pull_request:
+    branches:
+      - "main"
+      - "master"
+    paths:
+      - "Dockerfile"
+      - ".github/version_extractor.sh"
+
+jobs:
+  docker_buildx:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Perform setup steps
+        uses: JonasAlfredsson/checkout-qemu-buildx@v2
+        with:
+          should_login: ${{ github.event_name != 'pull_request' }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract version numbers from the Dockerfile
+        run: bash .github/version_extractor.sh ./Dockerfile >> $GITHUB_ENV
+
+      - name: Build and push all images
+        uses: docker/build-push-action@v6
+        with:
+          context: "."
+          platforms: |
+            linux/amd64
+            linux/386
+            linux/arm64
+            linux/arm/v7
+          pull: true
+          no-cache: true
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            jonasal/plex:latest
+            jonasal/plex:${{ env.APP_MAJOR }}
+            jonasal/plex:${{ env.APP_MAJOR }}.${{ env.APP_MINOR }}
+            jonasal/plex:${{ env.APP_MAJOR }}.${{ env.APP_MINOR }}.${{ env.APP_PATCH }}
+            jonasal/plex:${{ env.APP_VERSION }}
