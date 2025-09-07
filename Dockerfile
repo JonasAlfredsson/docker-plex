@@ -1,9 +1,15 @@
 FROM plexinc/pms-docker:1.20.1.3252-a78fef9a9
 
 # We are going to need to configure the s6 supervisor to behave in a sane manner
-# and actually exit if startup script and/or services fail. Change some timeouts
-# since they are not used after we change the CMD.
+# and actually exit if startup script and/or services fail.
 ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2 \
+# Then we are going to make sure that signals goes to Plex instead of S6.
+# Thanks to this we allow Plex to take the time it needs to perform a graceful
+# shutdown, while at the same time allowing us to significantly improve the
+# shutdown time of the container by removing timeouts that are just sleeps.
+    S6_CMD_RECEIVE_SIGNALS=1 \
+# These sleeps are now unnecessary since we don't have anything inside the
+# /etc/services.d/ or /etc/cont.finish.d/ folder.
     S6_SERVICES_GRACETIME=10 \
     S6_KILL_GRACETIME=10 \
     S6_KILL_FINISH_MAXTIME=10
