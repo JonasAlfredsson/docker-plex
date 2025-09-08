@@ -1,10 +1,10 @@
 all: build
 
 build:
-	docker build --progress=plain -t jonasal/plex:local .
+	docker build --progress=plain --target=plex-extras -t jonasal/plex:local .
 
 run:
-	docker run -it --rm \
+	docker run -it --rm --stop-timeout 60 \
 	--network=host \
 	--name=plex \
 	-e PLEX_UID='$(shell id -u)' \
@@ -15,7 +15,7 @@ run:
 	jonasal/plex:local
 
 dev:
-	docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 --tag jonasal/plex:dev .
+	docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 --target plex-extras --tag jonasal/plex:dev .
 
 push-dev:
-	docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 --tag jonasal/plex:dev --pull --push .
+	docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 --target plex-extras --tag jonasal/plex:dev --pull --push .

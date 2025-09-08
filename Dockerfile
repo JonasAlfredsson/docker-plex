@@ -1,20 +1,92 @@
-FROM plexinc/pms-docker:1.41.6.9685-d301f511a
+FROM plexinc/pms-docker:1.41.6.9685-d301f511a AS downloader
+# We are going to reuse the original image to download the installer again,
+# since it already contains all the tools and information we need. Doing it
+# this way also helps us keep the final image size down.
+ARG TARGETARCH
+ARG TARGETPLATFORM
+RUN set -eu; \
+    plex_version="$(grep 'version=' '/version.txt' | cut -d= -f2)"; \
+    plex_arch="${TARGETARCH}"; \
+    if [ "${TARGETPLATFORM}" = 'linux/arm/v7' ]; then \
+        plex_arch='armhf'; \
+    fi; \
+    mkdir /downloads && \
+    curl -SLf -o "/downloads/plex_installer.deb" \
+        "https://downloads.plex.tv/plex-media-server-new/${plex_version}/debian/plexmediaserver_${plex_version}_${plex_arch}.deb"
 
-# We are going to need to configure the s6 supervisor to behave in a sane manner
-# and actually exit if startup script and/or services fail.
-ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2 \
-# Then we are going to make sure that signals goes to Plex instead of S6.
-# Thanks to this we allow Plex to take the time it needs to perform a graceful
-# shutdown, while at the same time allowing us to significantly improve the
-# shutdown time of the container by removing timeouts that are just sleeps.
-    S6_CMD_RECEIVE_SIGNALS=1 \
-# These sleeps are now unnecessary since we don't have anything inside the
-# /etc/services.d/ or /etc/cont.finish.d/ folder.
-    S6_SERVICES_GRACETIME=10 \
-    S6_KILL_GRACETIME=10 \
-    S6_KILL_FINISH_MAXTIME=10
 
+# In this target we build an image that only contains Plex, and we try to keep
+# it as similar to the original setup as possible.
+# However, we remove all the superfluous S6 process supervisor and "updater"
+# stuff, which makes it much simpler.
+FROM debian:12.11-slim AS plex-basic
+
+# Keep the same terminal environment as the original image.
 ARG DEBIAN_FRONTEND=noninteractive
+ENV TERM="xterm" LANG="C.UTF-8" LC_ALL="C.UTF-8"
+
+# In this first RUN we prepare the container so we can install Plex in the
+# next step.
+RUN set -eu; \
+# First we create the plex user, which is expected to have UID=1000.
+    useradd plex -u 1000 -U -d /config -s /bin/false && \
+    usermod -G users plex && \
+# Then we setup some directories used in the original image.
+    install -o plex -g plex \
+      -d /config \
+      -d /transcode \
+      -d /data \
+    && \
+# Update and get dependencies needed by Plex.
+    apt-get update && \
+    apt-get install -y \
+      tzdata \
+      curl \
+      xmlstarlet \
+      uuid-runtime \
+    && \
+    apt-get -y autoremove && \
+    apt-get -y clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# In this RUN we mount the entire filesystem of the original Plex image, which
+# now also has the install binary, into a known location in our current build
+# step so we can just extract what is necessary and nothing else.
+RUN --mount=type=bind,from=downloader,source=/,target=/original \
+# First we make sure we manage to install Plex.
+    dpkg -i --force-confold --force-architecture /original/downloads/plex_installer.deb \
+    && \
+# Then we bring over the "/etc/cont-init.d/" files into a new "/entrypoint.d/"
+# folder. However, our entrypoint.sh require the files to end with ".sh".
+    cp -a /original/etc/cont-init.d /entrypoint.d && \
+    find /entrypoint.d -type f -exec mv '{}' '{}.sh' ';' && \
+# We know the updater script is irrelevant here, so delete it.
+    rm -v /entrypoint.d/50-plex-update.sh && \
+# Also, we don't have the "with-contenv" binary in this image, so replace the
+# shebang in the beginning of the original files.
+    sed -i 's&^#!/usr/bin/with-contenv &#!/usr/bin/&g' /entrypoint.d/*.sh
+
+# To end this build target we set the final environment variables just like the
+# original image as well.
+ENV CHANGE_CONFIG_DIR_OWNERSHIP="true" \
+    HOME="/config"
+
+# Make a note about which ports Plex use.
+EXPOSE 32400/tcp 8324/tcp 32469/tcp 1900/udp 32410/udp 32412/udp 32413/udp 32414/udp
+
+# Finally we add our new entrypoint and healthcheck, and set the Plex binary as
+# the CMD. This final part will make it easier to start this container with Bash
+# or similar when debugging.
+COPY ./entrypoint.sh ./healthcheck.sh /
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["/usr/lib/plexmediaserver/Plex Media Server"]
+HEALTHCHECK --interval=5s --timeout=2s --retries=20 CMD /healthcheck.sh || exit 1
+
+
+
+# This build target then extends the "basic" Plex image with some additional
+# features and plug-ins.
+FROM plex-basic AS plex-extras
 RUN apt-get update && apt-get install -y \
 # Install USB libraries if any such thing is to be mounted.
         libusb-dev \
@@ -41,20 +113,6 @@ RUN apt-get update && apt-get install -y \
 # Make sure all permissions in this folder tree are correct.
     chown -R plex:plex "${extras_base_path}" && \
     chmod -R 775 "${extras_base_path}" && \
-#
-# Below we are going to try to straighten out the (in my opinion) suboptimal
-# use of Docker by including s6 as a supervisor for a single process inside this
-# container.
-# However, instead of rewriting the entire image we read in the s6 docs that the
-# better solution here is to just make this single service into a CMD. So the
-# first step in doing that is moving the "run" script outside the reach of s6.
-    mv -v "/etc/services.d/plex/run" "/run-plex" && \
-    rm -rf "/etc/services.d/plex" && \
-# Also remove this updater file, unsure exactly what this is trying to achieve
-# and I don't like it.
-    rm -v /etc/cont-init.d/50-plex-update && \
-#
-#
 # Final cleanup.
     apt-get remove -y \
         unzip \
@@ -64,10 +122,5 @@ RUN apt-get update && apt-get install -y \
     rm -rf /var/lib/apt/lists/* && \
     rm -rf /tmp/*
 
-# Since we are only running a single process inside this container, and we want
-# to fail this container if this service dies, the s6 docs hints at that it is
-# much better to provide it as a CMD instead.
-CMD [ "/run-plex" ]
-
-# Include the new files executed during startup.
-COPY cont-init.d/ /etc/cont-init.d
+# Then we add the additional entrypoint scripts needed to handle the "extras".
+COPY /entrypoint.d/* /entrypoint.d/

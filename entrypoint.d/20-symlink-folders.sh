@@ -1,4 +1,4 @@
-#!/usr/bin/with-contenv bash
+#!/usr/bin/bash
 set -e
 # This script tries to symlink the stuff present in the "/extras" folder to the
 # "live" config folder.

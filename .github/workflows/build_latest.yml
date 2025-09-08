@@ -31,16 +31,36 @@ jobs:
       - name: Extract version numbers from the Dockerfile
         run: bash .github/version_extractor.sh ./Dockerfile >> $GITHUB_ENV
 
-      - name: Build and push all images
+      - name: Build and push the extras Plex image
         uses: docker/build-push-action@v6
         with:
           context: "."
+          target: plex-extras
           platforms: |
             linux/amd64
             linux/arm64
             linux/arm/v7
           pull: true
-          no-cache: true
+          no-cache: false
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            jonasal/plex:latest-extras
+            jonasal/plex:${{ env.APP_MAJOR }}-extras
+            jonasal/plex:${{ env.APP_MAJOR }}.${{ env.APP_MINOR }}-extras
+            jonasal/plex:${{ env.APP_MAJOR }}.${{ env.APP_MINOR }}.${{ env.APP_PATCH }}-extras
+            jonasal/plex:${{ env.APP_VERSION }}-extras
+
+      - name: Build and push the basic Plex image
+        uses: docker/build-push-action@v6
+        with:
+          context: "."
+          target: plex-basic
+          platforms: |
+            linux/amd64
+            linux/arm64
+            linux/arm/v7
+          pull: false
+          no-cache: false
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
             jonasal/plex:latest
