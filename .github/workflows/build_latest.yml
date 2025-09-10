@@ -33,6 +33,8 @@ jobs:
       - name: Extract version numbers from the Dockerfile
         run: bash .github/version_extractor.sh ./Dockerfile >> $GITHUB_ENV
 
+      # Build the "extras" image before the "basic" one to assert that all build
+      # steps will succeed before pushing.
       - name: Build and push the extras Plex image
         uses: docker/build-push-action@v6
         with:
@@ -52,6 +54,8 @@ jobs:
             jonasal/plex:${{ env.APP_MAJOR }}.${{ env.APP_MINOR }}.${{ env.APP_PATCH }}-extras
             jonasal/plex:${{ env.APP_VERSION }}-extras
 
+      # Since all the steps are already cached from the task above this will
+      # basically just push the "basic" tags.
       - name: Build and push the basic Plex image
         uses: docker/build-push-action@v6
         with:
