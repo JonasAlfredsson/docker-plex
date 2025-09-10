@@ -8,7 +8,9 @@ on:
       - "master"
     paths:
       - "Dockerfile"
-      - "/cont-init.d/**"
+      - "/entrypoint.sh"
+      - "/entrypoint.d/**"
+      - "/healthcheck.sh"
   pull_request:
     branches:
       - "main"

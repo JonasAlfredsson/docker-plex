@@ -10,7 +10,7 @@ set -eo pipefail
 ################################################################################
 
 
-version=$(sed -n -r -e 's&^FROM plexinc/pms-docker:([1-9]+(\.[0-9]+){3}-[0-9a-f]+)$&\1&p' "${1}")
+version=$(sed -n -r -e 's&^FROM plexinc/pms-docker:([1-9]+(\.[0-9]+){3}-[0-9a-f]+)\s.*?$&\1&p' "${1}")
 
 if [ -z "${version}" ]; then
     echo "Could not extract version from '${1}'"
