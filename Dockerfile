@@ -19,7 +19,7 @@ RUN set -eu; \
 # it as similar to the original setup as possible.
 # However, we remove all the superfluous S6 process supervisor and "updater"
 # stuff, which makes it much simpler.
-FROM debian:12.11-slim AS plex-basic
+FROM debian:13.1-slim AS plex-basic
 
 # Keep the same terminal environment as the original image.
 ARG DEBIAN_FRONTEND=noninteractive
