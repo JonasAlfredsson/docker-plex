@@ -36,7 +36,7 @@ jobs:
       # Build the "extras" image before the "basic" one to assert that all build
       # steps will succeed before pushing.
       - name: Build and push the extras Plex image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: "."
           target: plex-extras
@@ -57,7 +57,7 @@ jobs:
       # Since all the steps are already cached from the task above this will
       # basically just push the "basic" tags.
       - name: Build and push the basic Plex image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: "."
           target: plex-basic
