@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Run the script that checks for new Plex versions
         run: bash .github/check_plex_update.sh ./Dockerfile
