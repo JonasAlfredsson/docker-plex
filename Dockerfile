@@ -40,10 +40,11 @@ RUN set -eu; \
 # Update and get dependencies needed by Plex.
     apt-get update && \
     apt-get install -y \
-      tzdata \
       curl \
-      xmlstarlet \
+      procps \
+      tzdata \
       uuid-runtime \
+      xmlstarlet \
     && \
     apt-get -y autoremove && \
     apt-get -y clean && \
