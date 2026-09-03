@@ -1,14 +1,14 @@
 # docker-plex
 A rewrite of the official [Plex Docker image][1] based on `debian-slim`
-instead of `ubuntu`, and with Plex running as PID 1 instead of under the
-[S6 process supervisor][4] which allows for a more sane startup and exit of the
-container. Unless you ran the original container with auto-upgrading to the
-BETA release channel this should be a drop-in replacement.
+instead of `ubuntu`, with Plex running as PID 1 instead of under the
+[S6 process supervisor][4]. This allows for a more sane startup and shutdown of
+the container. Unless you ran the original container with auto-upgrading to the
+BETA release channel, this should be a drop-in replacement.
 
 > Jump to [this section](#differences-from-the-official-image) to read about
 > how this image differs in special cases.
 
-We also produce an "extras" version of this image, with the
+We also produce an "extras" version of this image with the
 [HTTP AniDB Metadata Agent (HAMA)][2] and [Absolute Series Scanner (ASS)][3]
 plug-ins added.
 
@@ -20,14 +20,14 @@ which move when a new "specific" version is released:
 - "specific" -> `1.42.1.10060-4e8b05daf`
 
 Just append `-extras` to any of the tags above to get the image with the extras
-in it.
+included.
 
 > This image is mainly used by my [Ansible role][5], so check it out if that
 > is of interest.
 
 ## Usage
 The usage is basically identical to the official image, so go to its [README][1]
-to get the basic details on which folders it writes to, and what environmental
+to get the basic details on which folders it writes to and which environment
 variables are available.
 
 However, after experimenting a lot with Plex it seems like there are times when
@@ -57,14 +57,14 @@ docker run -d --stop-timeout 60 \
 > the BETA release track, this image will behave better™ than the official one.
 
 The official image uses the [S6 process supervisor][4] as the `ENTRYPOINT` and
-defines Plex as a "supervised service" inside the the `/etc/services.d` folder.
+defines Plex as a "supervised service" inside the `/etc/services.d` folder.
 What this means is that Docker (which already is a process supervisor) first
-starts (and supervises) the S6 process supervisor which in turn then goes on to
-start (and supervise) the Plex service, and to me this seems like a weird
-design choice.
+starts (and supervises) the S6 process supervisor, which in turn goes on to
+start (and supervise) the Plex service. To me, this seems like a weird design
+choice.
 
-While I do understand that there might be some exotic usecases that benefits
-from having an additional process supervisor baked in to the Docker image, I do
+While I do understand that there might be some exotic usec ases that benefits
+from having an additional process supervisor baked into the Docker image, I do
 not think it provides any benefits here since Plex is the one and only process
 running inside this container. I especially don't think it should be started
 as a "supervised service", since I believe a failure of this program should
@@ -87,17 +87,17 @@ image ignores). Having Plex run as PID 1 also allows us to just increase the
 `docker stop` timeout to allow for a much more graceful shutdown that doesn't
 leave us with ghost PID files.
 
-This, in my opinion, provides us with a much more sane Docker experience that
-is more in line with how many of the largest Docker images behave, and makes
-it easier to monitor for bad behavior.
+This, in my opinion, provides a much more sane Docker experience that is more
+in line with how many of the largest Docker images behave, and it makes it
+easier to monitor for bad behavior.
 
-We still keep the same environmental variables as the original image, and
-beyond changing from `ubuntu` to `debian` we keep most of the same dependencies
-installed that are used by the same startup scripts. However, the BETA
-release track [updater/installer][6] is dropped since stopping the Plex service
-(which is PID 1) now brings down the container, so it is not really possible
-to do a "running reload" of it. This is by design, since I find it very weird
-starting a container with a specific Docker tag to then have it run something
+We still keep the same environment variables as the original image, and beyond
+changing from `ubuntu` to `debian`, we keep most of the same dependencies
+installed that are used by the same startup scripts. However, the BETA release
+track [updater/installer][6] is dropped, since stopping the Plex service (which
+is PID 1) now brings down the container. This means it is not really possible
+to do a "running reload" of it. This is by design, since I find it very weird to
+start a container with a specific Docker tag and then have it run something
 completely different inside.
 
 Finally, something that _could_ be a reason for having a supervisor as PID 1
@@ -116,12 +116,11 @@ The "extras" added are currently just the [HAMA][2] and [ASS][3] plug-ins
 [`20-symlink-folders.sh`](./entrypoint.d/20-symlink-folders.sh) entrypoint
 script for moving them into the correct location during startup.
 
-This is just because I use these plug-ins and want them up to date with
-the image running. To achieve this it adds symlinks inside the "live"
-`/config` folder pointing back to the real files that are "inside" the running
-container. What this means is that looking at these files outside of the
-running container it will just look like broken links, but they do work inside.
-
+This is simply because I use these plug-ins and want them up to date with the
+image running. To achieve this, it adds symlinks inside the "live" `/config`
+folder pointing back to the real files that are "inside" the running container.
+What this means is that looking at these files outside of the running container,
+they will just look like broken links, but they do work inside.
 
 ## Useful Information
 This section provides some extra information about how the Plex container
@@ -143,31 +142,31 @@ data is transient and not really important, but can be stored for a longer time
 as a cache so Plex don't have to re-encode the same file over and over.
 
 ### The `/data` Folder
-This is just a suggested folder where you can mount your media library to. This
-should probably only be mounted as read-only since Plex have no reason to write
+This is just a suggested folder where you can mount your media library. This
+should probably only be mounted as read-only, since Plex has no reason to write
 anything under this path. However, it is possible to mount your library to any
-path you want inside the container, just make sure the config points to
-the correct location.
+path you want inside the container; just make sure the config points to the
+correct location.
 
 ### Backups
-You should make sure to backup you data from time to time, so here is a process
+You should make sure to back up your data from time to time, so here is a process
 that should work.
 
-Begin by making sure that Plex is not running
+Begin by making sure that Plex is not running:
 
 ```bash
 docker stop plex
 ```
 
-You should then update the two `/path/to/` paths to the correct ones. The
-`/path/to/config` should be the host's folder where your mounted the container's
-`/config` folder.
+You should then update the two `/path/to/` paths to the correct values. The
+`/path/to/config` path should be the host folder where you mounted the
+container's `/config` folder.
 
 The "exclude" directives can be removed if you want all that data to be included
 in the backup as well, but all of it should be possible to rebuild by Plex
 after it has started (but it might take some time).
 
-> Here we use zstd compression which needs the `zstd` package installed.
+> Here we use zstd compression, which requires the `zstd` package.
 
 ```bash
 sudo tar -I "zstd -19 --threads=0" -cvf "/path/to/plex_backup_$(date -u +"%Y-%m-%dT%H:%M:%SZ").tar.zst" \
@@ -178,22 +177,22 @@ sudo tar -I "zstd -19 --threads=0" -cvf "/path/to/plex_backup_$(date -u +"%Y-%m-
   -C "/path/to/config" .
 ```
 
-You can then start the container again.
+You can then start the container again:
 
 ```bash
 docker start plex
 ```
 
 #### Restore
-If you need to restore I assume that Plex isn't running yet, so you can just
-decompress your latest backup. Once again you need to make sure the paths are
-correct for your system.
+If you need to restore, I assume that Plex is not running yet, so you can just
+decompress your latest backup. Once again, make sure the paths are correct for
+your system.
 
 ```bash
 sudo tar -I "zstd -d --threads=0" -xvf /path/to/plex_backup_1970-01-01T00:00Z.tar.zst -C /path/to/config
 ```
 
-Before starting Plex you will need to change permissions to the `PLEX_UID` and
+Before starting Plex, you will need to change permissions to the `PLEX_UID` and
 `PLEX_GID` of your `plex` user in the container instead of `1000:1000` here.
 
 ```bash
