@@ -107,7 +107,7 @@ start the container with `--init` to put the built in [tini][11] process in
 front, but it shouldn't be necessary.
 
 ```bash
-docker run --it --init jonasal/plex:1.42.1-extras
+docker run -it --init jonasal/plex:1.42.1-extras
 ```
 
 ### The "extras" Image
@@ -131,7 +131,7 @@ very unclear to me. Read at your own leisure.
 ### The `/config` Folder
 The `/config` folder is set as the home directory of the `plex` user (i.e.
 `echo ~plex`). The Plex program will then continue to create the following
-folder structure: `/confg/Library/Application Support/Plex Media Server/`. This
+folder structure: `/config/Library/Application Support/Plex Media Server/`. This
 path is what is assembled as `pmsBaseDir` in most of the `entrypoint.d` scripts,
 and is the folder where all important files will be located.
 
@@ -148,6 +148,60 @@ should probably only be mounted as read-only since Plex have no reason to write
 anything under this path. However, it is possible to mount your library to any
 path you want inside the container, just make sure the config points to
 the correct location.
+
+### Backups
+You should make sure to backup you data from time to time, so here is a process
+that should work.
+
+Begin by making sure that Plex is not running
+
+```bash
+docker stop plex
+```
+
+You should then update the two `/path/to/` paths to the correct ones. The
+`/path/to/config` should be the host's folder where your mounted the container's
+`/config` folder.
+
+The "exclude" directives can be removed if you want all that data to be included
+in the backup as well, but all of it should be possible to rebuild by Plex
+after it has started (but it might take some time).
+
+> Here we use zstd compression which needs the `zstd` package installed.
+
+```bash
+sudo tar -I "zstd -19 --threads=0" -cvf "/path/to/plex_backup_$(date -u +"%Y-%m-%dT%H:%M:%SZ").tar.zst" \
+  --exclude='Library/Application Support/Plex Media Server/Cache' \
+  --exclude='Library/Application Support/Plex Media Server/Logs' \
+  --exclude='Library/Application Support/Plex Media Server/Crash Reports' \
+  --exclude='Library/Application Support/Plex Media Server/Media' \
+  -C "/path/to/config" .
+```
+
+You can then start the container again.
+
+```bash
+docker start plex
+```
+
+#### Restore
+If you need to restore I assume that Plex isn't running yet, so you can just
+decompress your latest backup. Once again you need to make sure the paths are
+correct for your system.
+
+```bash
+sudo tar -I "zstd -d --threads=0" -xvf /path/to/plex_backup_1970-01-01T00:00Z.tar.zst -C /path/to/config
+```
+
+Before starting Plex you will need to change permissions to the `PLEX_UID` and
+`PLEX_GID` of your `plex` user in the container instead of `1000:1000` here.
+
+```bash
+sudo chown -R 1000:1000 /path/to/config
+```
+
+Then you can go back to the beginning of [Usage](#usage) and follow the first
+setup guide again.
 
 
 
