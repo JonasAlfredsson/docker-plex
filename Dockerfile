@@ -1,4 +1,4 @@
-FROM plexinc/pms-docker:1.43.4.10903-e5521bd8c AS downloader
+FROM plexinc/pms-docker:1.43.5.11029-6bf8af3f0 AS downloader
 # We are going to reuse the original image to download the installer again,
 # since it already contains all the tools and information we need. Doing it
 # this way also helps us keep the final image size down.
