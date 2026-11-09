@@ -27,7 +27,7 @@ jobs:
         run: bash .github/version_extractor.sh ./Dockerfile >> $GITHUB_ENV
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v8.1.1
+        uses: peter-evans/create-pull-request@v8.1.2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: Update Plex base image to ${{ env.APP_VERSION }}
